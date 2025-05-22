@@ -14,7 +14,7 @@ class ScanProjection(object):
 
         self.cached_data = {}
 
-    def doProjection(self, pointcloud: np.ndarray):
+    def doProjection(self, pointcloud: np.ndarray, wrap_around: int = 0):
         self.cached_data = {}
         # get depth of all points
         depth = np.linalg.norm(pointcloud[:, :3], 2, axis=1)
@@ -33,7 +33,11 @@ class ScanProjection(object):
         proj_y = np.cumsum(proj_y)
         # scale to image size using angular resolution
         proj_x = proj_x * self.proj_w - 0.001
-
+        # --- Wrap around vertical axis if specified ---
+        if wrap_around > 0 and wrap_around < self.proj_w:
+            # Shift proj_x so that wrap_around is the new "zero"
+            proj_x = (proj_x - wrap_around) % self.proj_w
+            
         # print(f'proj_y: [{proj_y.min()} - {proj_y.max()}] - ({(proj_y < self.proj_h).astype(np.int32).sum()} - {(proj_y >= self.proj_h).astype(np.int32).sum()})')
 
         px = proj_x.copy()
