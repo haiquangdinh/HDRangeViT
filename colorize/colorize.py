@@ -39,7 +39,7 @@ def doColorize(pc_file, im_file, calib_file, cam: int = 0, save_file: bool = Tru
     uv = pts_img[valid, :2].astype(int)
     colors = img[uv[:, 1], uv[:, 0]] / 255.0  # RGB normalized
     # 7. Print number of valid points along with number of points
-    print(f'Number of valid points/ Number of points: {np.sum(valid)}/{pts_velo.shape[0]} ({np.sum(valid)/pts_velo.shape[0]*100:.2f}%)')
+    # print(f'Number of valid points/ Number of points: {np.sum(valid)}/{pts_velo.shape[0]} ({np.sum(valid)/pts_velo.shape[0]*100:.2f}%)')
     # 8. Cascade the valid array to points
     points_add = np.concatenate((points, np.zeros((points.shape[0], 4))), axis=1)
     points_add[:, 4] = valid.astype(np.int32)  # Assign 1 if valid, 0 otherwise 
