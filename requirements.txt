@@ -1,3 +1,4 @@
 timm
 torch
 tqdm
+segmentation-models-pytorch
