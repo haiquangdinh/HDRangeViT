@@ -1,5 +1,9 @@
 # HD: ignore model
 *.pth
+# HD: ignore backup
+backup/
+# HD: ignore dataset
+dataset/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
