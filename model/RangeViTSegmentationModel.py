@@ -9,28 +9,19 @@ class RangeViTSegmentationModel(nn.Module):
         self.input_height = 48
         self.input_width = 480
 
-        # Create ViT model without features_only to see what we actually get
+        # Create ViT model with weights trained on ImageNet21k
         self.backbone = timm.create_model(
-            'vit_small_patch16_384',       
+            'vit_small_patch16_384',
             pretrained=True,
             in_chans=in_channels,
-            num_classes=0,  # Set num_classes to 0 to avoid classification head; this has no effect on number of classes in seg_head (still 20)
-            global_pool='', # disables CLS token pooling
-            features_only=False  # Don't use features_only
+            num_classes=0,
+            global_pool='',
+            features_only=False,
+            drop_path_rate=0.1,  # Add DropPath regularization (0.1 is typical)
+            drop_rate=0.1,
+            attn_drop_rate=0.1
         )
         
-        # Get the actual feature dimension from the model
-        feat_dim = self.backbone.embed_dim #384  # This should be 384 for vit_small
-        hidden_dim = 256
-        # Print for debugging
-        print(f"ViT feature dimension: {feat_dim}")
-        print(f"number of classes: {n_classes}")
-        # Create segmentation head with the correct input dimension
-        self.seg_head = nn.Sequential(
-            nn.Conv2d(feat_dim, hidden_dim, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(hidden_dim, n_classes, kernel_size=1)
-        )
         # Decoder: two upsampling blocks for refinement
         self.decoder = nn.Sequential(
             nn.Conv2d(self.backbone.embed_dim, 256, kernel_size=3, padding=1),
