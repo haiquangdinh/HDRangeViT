@@ -37,19 +37,22 @@ class KITTISegmentationDataset(Dataset):
 
         # Data augmentation: random translation and rotation
         if self.training:
-            # Random translation (shift in H and W)
-            max_trans = 10  # pixels
-            trans_h = np.random.randint(-max_trans, max_trans + 1)
-            trans_w = np.random.randint(-max_trans, max_trans + 1)
-            feats = np.roll(feats, shift=trans_h, axis=0)
-            feats = np.roll(feats, shift=trans_w, axis=1)
-            label = np.roll(label, shift=trans_h, axis=0)
-            label = np.roll(label, shift=trans_w, axis=1)
-
-            # Random rotation (±5 degrees)
-            angle = np.random.uniform(-5, 5)
-            feats, label = self.rotate(feats, label, angle)
-
+            # Random translation (shift in H and W) (probability = 50%)
+            if np.random.rand() < 0.5:
+                max_trans = 10  # pixels
+                trans_h = np.random.randint(-max_trans, max_trans + 1)
+                trans_w = np.random.randint(-max_trans, max_trans + 1)
+                feats = np.roll(feats, shift=trans_h, axis=0)
+                feats = np.roll(feats, shift=trans_w, axis=1)
+                label = np.roll(label, shift=trans_h, axis=0)
+                label = np.roll(label, shift=trans_w, axis=1)
+            # Random rotation (±5 degrees) (probability = 50%)
+            if np.random.rand() < 0.5:
+                angle = np.random.uniform(-5, 5)
+                feats, label = self.rotate(feats, label, angle)
+            # if np.random.rand() < 0.5:  # Random vertical flip
+            #     feats = np.flip(feats, axis=0)
+            #     label = np.flip(label, axis=0)
         feats = torch.tensor(feats).permute(2, 0, 1).float()  # to [C, H, W]
         label = torch.tensor(label).long()                # [H, W]
 
