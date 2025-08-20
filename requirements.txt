@@ -2,3 +2,5 @@ timm
 torch
 tqdm
 segmentation-models-pytorch
+torchmetrics
+# pandas # optional: to view dataframes when debugging
