@@ -17,9 +17,9 @@ class RangeViTSegmentationModel(nn.Module):
             num_classes=0,
             global_pool='',
             features_only=False,
-            drop_path_rate=0.2,  # Add DropPath regularization (0.1 is typical)
-            drop_rate=0.2,
-            attn_drop_rate=0.2
+            drop_path_rate=0.1,  # Add DropPath regularization (0.1 is typical)
+            drop_rate=0.1,
+            attn_drop_rate=0.1
         )
         
         # Decoder: two upsampling blocks for refinement
@@ -28,7 +28,7 @@ class RangeViTSegmentationModel(nn.Module):
             nn.Conv2d(self.backbone.embed_dim, conv11dim, kernel_size=1),
             nn.BatchNorm2d(conv11dim),
             nn.GELU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.ConvTranspose2d(conv11dim, conv11dim, kernel_size=4, stride=2, padding=1),
             nn.Conv2d(conv11dim, n_classes * 4, kernel_size=3, padding=1),
             nn.PixelShuffle(upscale_factor=2)
