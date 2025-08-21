@@ -1,13 +1,16 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
-
+from .stems import ConvStem
 class RangeViTSegmentationModel(nn.Module):
     def __init__(self, in_channels, n_classes):
         super().__init__()
 
-        self.input_height = 48
-        self.input_width = 480
+        input_height = 48
+        input_width = 480
+        hidden_dim = 256
+        embed_dim = 384  # ViT embed dimension
+        base_channels = 32
 
         # Create ViT model with weights trained on ImageNet21k
         self.backbone = timm.create_model(
@@ -21,6 +24,16 @@ class RangeViTSegmentationModel(nn.Module):
             drop_rate=0.1,
             attn_drop_rate=0.1
         )
+
+        # Stem block: preprocess input before ViT encoder
+        self.backbone.patch_embed = ConvStem(
+            in_channels=in_channels,
+            base_channels=base_channels,
+            img_size=(input_height, input_width),
+            patch_stride=(2, 8),
+            embed_dim=embed_dim,
+            flatten=True,
+            hidden_dim=hidden_dim)
         
         # Decoder: two upsampling blocks for refinement
         conv11dim = 256 # out-of-memory: self.backbone.embed_dim*self.input_height*self.input_width
