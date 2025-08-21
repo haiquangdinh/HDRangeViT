@@ -12,6 +12,14 @@ class RangeViTSegmentationModel(nn.Module):
         embed_dim = 384  # ViT embed dimension
         base_channels = 32
 
+        # Stem block: preprocess input before ViT encoder
+        self.patch_embed = ConvStem(
+            in_channels=in_channels,
+            base_channels=base_channels,
+            embed_dim=embed_dim,
+            flatten=True,
+            hidden_dim=hidden_dim)
+        
         # Create ViT model with weights trained on ImageNet21k
         self.backbone = timm.create_model(
             'vit_small_patch16_384',
@@ -25,40 +33,29 @@ class RangeViTSegmentationModel(nn.Module):
             attn_drop_rate=0.1
         )
 
-        # Stem block: preprocess input before ViT encoder
-        self.backbone.patch_embed = ConvStem(
-            in_channels=in_channels,
-            base_channels=base_channels,
-            img_size=(input_height, input_width),
-            patch_stride=(2, 8),
-            embed_dim=embed_dim,
-            flatten=True,
-            hidden_dim=hidden_dim)
+        # Replace built-in patch embedding with identity
+        self.backbone.patch_embed = nn.Identity()
         
         # Decoder: two upsampling blocks for refinement
-        conv11dim = 256 # out-of-memory: self.backbone.embed_dim*self.input_height*self.input_width
         self.decoder = nn.Sequential(
-            nn.Conv2d(self.backbone.embed_dim, conv11dim, kernel_size=1),
-            nn.BatchNorm2d(conv11dim),
+            nn.Conv2d(self.backbone.embed_dim, hidden_dim, kernel_size=1),
+            nn.BatchNorm2d(hidden_dim),
             nn.GELU(),
             nn.Dropout(0.1),
-            nn.ConvTranspose2d(conv11dim, conv11dim, kernel_size=4, stride=2, padding=1),
-            nn.Conv2d(conv11dim, n_classes * 4, kernel_size=3, padding=1),
+            nn.ConvTranspose2d(hidden_dim, hidden_dim, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(hidden_dim, n_classes * 4, kernel_size=3, padding=1),
             nn.PixelShuffle(upscale_factor=2)
         )
 
         self.original_size = None  # Store original size for resizing back
 
     def forward(self, x):
-        # Store original size for later upsampling
         self.original_size = x.shape[2:]
-        # Resize input to 384x384 (what ViT expects)
-        x_resized = F.interpolate(x, size=(384, 384), mode='bilinear', align_corners=False)
-        # Extract features from backbone
-        feats = self.backbone(x_resized)
-        # Reshape features for segmentation head 
+        # Resize input to what ViT expects
+        x, skip = self.patch_embed(x)
+        feats = self.backbone(x)
         # ViT returns tokens, we need to reshape to 2D feature map
-        B = x_resized.shape[0]
+        B = x.shape[0]
         h = w = int(384 / 16)  # 16 is patch size of vit_small_patch16_384
         C = feats.shape[-1]
         # Remove CLS token and reshape to [B, C, h, w]

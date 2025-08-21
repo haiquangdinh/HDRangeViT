@@ -16,97 +16,32 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .model_utils import get_grid_size_1d, get_grid_size_2d
-
-
-class PatchEmbedding(nn.Module):
-    def __init__(self, image_size, patch_size, patch_stride, embed_dim, channels, resize_emb=True):
-        super().__init__()
-        if isinstance(patch_size, int):
-            patch_size = (patch_size, patch_size)
-        if patch_stride is None:
-            patch_stride = patch_size
-        else:
-            if isinstance(patch_stride, int):
-                patch_stride = (patch_stride, patch_stride)
-        assert isinstance(patch_size, (list, tuple))
-        assert isinstance(patch_stride, (list, tuple))
-        assert len(patch_stride) == 2
-        assert len(patch_size) == 2
-        patch_size = tuple(patch_size)
-        patch_stride = tuple(patch_stride)
-
-        self.image_size = image_size
-        if image_size[0] % patch_size[0] != 0 or image_size[1] % patch_size[1] != 0:
-            raise ValueError('image dimensions must be divisible by the patch size')
-        self.grid_size = (
-            get_grid_size_1d(image_size[0], patch_size[0], patch_stride[0]),
-            get_grid_size_1d(image_size[1], patch_size[1], patch_stride[1]))
-
-        self.num_patches = self.grid_size[0] * self.grid_size[1]
-        self.patch_size = patch_size
-        self.patch_stride = patch_stride
-        self.proj = nn.Conv2d(
-            channels, embed_dim, kernel_size=patch_size, stride=patch_stride
-        )
-        self.resize_emb = resize_emb
-    def get_grid_size(self, H, W):
-        return get_grid_size_2d(H, W, self.patch_size, self.patch_stride)
-
-    def forward(self, im):
-        B, C, H, W = im.shape
-        if self.resize_emb:
-            x = self.proj(im).flatten(2).transpose(1, 2) # shape: B, N, D
-        else:
-            x = self.proj(im) # shape: B, D, new_H, new_W
-        return x, None
-
-
 class ConvStem(nn.Module):
     def __init__(self,
                  in_channels=5,
                  base_channels=32,
-                 img_size=(32, 384),
-                 patch_stride=(2, 8),
                  embed_dim=384,
                  flatten=True,
                  hidden_dim=None):
         super().__init__()
 
-        if hidden_dim is None:
-            hidden_dim = 2 * base_channels
-
-        self.base_channels = base_channels
-        self.dropout_ratio = 0.2
+        self.flatten = flatten
+        dropout_ratio = 0.2
 
         # Build stem, similar to the design in https://github.com/TiagoCortinhal/SalsaNext
         self.conv_block = nn.Sequential(
             ResContextBlock(in_channels, base_channels),
             ResContextBlock(base_channels, base_channels),
             ResContextBlock(base_channels, base_channels),
-            ResBlock(base_channels, hidden_dim, self.dropout_ratio, pooling=False, drop_out=False))
+            ResBlock(base_channels, hidden_dim, dropout_ratio, pooling=False, drop_out=False))
 
-        assert patch_stride[0] % 2 == 0
-        assert patch_stride[1] % 2 == 0
-        kernel_size = (patch_stride[0] + 1, patch_stride[1] + 1)
-        padding = (patch_stride[0] // 2, patch_stride[1] // 2)
         self.proj_block = nn.Sequential(
-             nn.AvgPool2d(kernel_size=kernel_size, stride=patch_stride, padding=padding),
-             nn.Conv2d(hidden_dim, embed_dim, kernel_size=1))
+            nn.AdaptiveAvgPool2d((24,24)),
+            nn.Conv2d(hidden_dim, embed_dim, kernel_size=1))
 
-        self.patch_stride = patch_stride
-        self.patch_size = patch_stride
-        self.grid_size = (img_size[0] // patch_stride[0], img_size[1] // patch_stride[1])
-        self.num_patches = self.grid_size[0] * self.grid_size[1]
-        self.flatten = flatten
-        self.hidden_dim = hidden_dim
-        self.embed_dim = embed_dim
-    def get_grid_size(self, H, W):
-        return get_grid_size_2d(H, W, self.patch_size, self.patch_stride)
+ 
 
     def forward(self, x):
-        print(f'Hidden dim:{self.hidden_dim}')
-        print(f'Embed dim:{self.embed_dim}')
         B, C, H, W = x.shape  # B, in_channels, image_size[0], image_size[1]
         x_base = self.conv_block(x) # B, hidden_dim, image_size[0], image_size[1]
         x = self.proj_block(x_base)
