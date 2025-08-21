@@ -27,7 +27,7 @@ class ConvStem(nn.Module):
 
         self.flatten = flatten
         dropout_ratio = 0.2
-
+        grid_n = int(384 / 16) # model dimension/patch size: work for scale up for vit_small_patch16_384
         # Build stem, similar to the design in https://github.com/TiagoCortinhal/SalsaNext
         self.conv_block = nn.Sequential(
             ResContextBlock(in_channels, base_channels),
@@ -36,7 +36,7 @@ class ConvStem(nn.Module):
             ResBlock(base_channels, hidden_dim, dropout_ratio, pooling=False, drop_out=False))
 
         self.proj_block = nn.Sequential(
-            nn.AdaptiveAvgPool2d((24,24)),
+            nn.AdaptiveAvgPool2d((grid_n,grid_n)),
             nn.Conv2d(hidden_dim, embed_dim, kernel_size=1))
 
  
