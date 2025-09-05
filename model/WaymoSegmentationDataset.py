@@ -10,7 +10,7 @@ class WaymoSegmentationDataset(Dataset):
         self.file_list = []
         self.training = training  # Set to True for training dataset, False for validation
         file_list = []
-        pc_dir = os.path.join(root_dir, 'preprocess')
+        pc_dir = os.path.join(root_dir, 'preprocess_mini')
         # Get the list of files (full path) in the point cloud directory
         file_list = [os.path.join(pc_dir, f) for f in os.listdir(pc_dir) if f.endswith('.bin')]
         self.file_list.extend(file_list)
@@ -18,9 +18,11 @@ class WaymoSegmentationDataset(Dataset):
     # Read the point cloud data from binary files
     @staticmethod
     def readPCD(path):
-        pcd = np.fromfile(path, dtype=np.float32).reshape(64, 2650, 10) # 10 channels: range, x, y, z, intensity, flag, R, G, B, label
-        # crop it to 48, 480, 10
-        pcd = pcd[8:56, 1085:1565, :]  # crop to 48, 480, 10
+        pcd = np.fromfile(path, dtype=np.float32).reshape(64, 1680, 10) # 10 channels: range, x, y, z, intensity, flag, R, G, B, label
+        # random crop it to 48, 480, 10
+        top = np.random.randint(0, 64 - 48)
+        left = np.random.randint(0, 1680 - 480)
+        pcd = pcd[top:top + 48, left:left + 480, :]
         return pcd
   
     def __len__(self):
@@ -67,3 +69,12 @@ class WaymoSegmentationDataset(Dataset):
         feats_rot = np.stack([cv2.warpAffine(feats[:, :, c], rot_mat, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT) for c in range(feats.shape[2])], axis=2)
         label_rot = cv2.warpAffine(label, rot_mat, (w, h), flags=cv2.INTER_NEAREST, borderMode=cv2.BORDER_REFLECT)
         return feats_rot, label_rot
+    
+    def random_crop(self, data, crop_size=(48, 480)):
+        h, w = data.shape[:2]
+        ch, cw = crop_size
+        if h > ch and w > cw:
+            top = np.random.randint(0, h - ch)
+            left = np.random.randint(0, w - cw)
+            data = data[top:top + ch, left:left + cw, :]
+        return data
